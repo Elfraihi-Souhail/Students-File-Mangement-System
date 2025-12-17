@@ -23,37 +23,50 @@
 #define MIN_YEAR_STUDY 1
 #define MAX_YEAR_STUDY 5
 
+static const char *wilayat[58] = {"Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar", "Blida", "Bouira", "Tamanrasset", "Tébessa", "Tlemcen", "Tiaret", "Tizi Ouzou", "Alger", "Djelfa", "Jijel", "Sétif", "Saïda", "Skikda", "Sidi Bel Abbès", "Annaba", "Guelma", "Constantine", "Médéa", "Mostaganem", "M'Sila", "Mascara", "Ouargla", "Oran", "El Bayadh", "Illizi", "Bordj Bou Arréridj", "Boumerdès", "El Tarf", "Tindouf", "Tissemsilt", "El Oued", "Khenchela", "Souk Ahras", "Tipaza", "Mila", "Aïn Defla", "Naâma", "Aïn Témouchent", "Ghardaïa", "Relizane", "Timimoun", "Bordj Badji Mokhtar", "Ouled Djellal", "Béni Abbès", "In Salah", "In Guezzam", "Touggourt", "Djanet", "El M'Ghair", "El Meniaa"};
+static const char *blood_types[8] = {"O+" , "A+" , "B+" , "O-" , "A-" , "AB+" , "B-" , "AB-"};
+static const char *year_of_study[5] = {"1CP" , "2CP" , "1CS" , "2CS" , "3CS"};
+static const char *specialities[4] = {"Information Systems and Technologies (SIT)" , "Computer Systems (SIQ)" , "SOftware and Computer Systems (SIL)" , "Intelligent Systems and Data (SID)"};
 
-
-
-//----------------------Type defintions:----------------------//
-typedef struct date {
-    char year[4];   // 2003-2008
-    char month[2];   // 1-12
-    char day[2];    // 1-31
-} Date;
-
+//----------------------Type defintions:---------------------//
 typedef struct student {
     unsigned int Student_id;
-    char family_name[30];
-    char first_name[30];
-    Date date_birth;
-    unsigned int wilaya_birth;
+    char family_name[31];
+    char first_name[31];
+    char date_birth[11];
+    char wilaya_birth[30];
     char gender;
-    char blood_type[3];
-    char year_study[3];
-    char speciality[3];
+    char blood_type[4];
+    char year_study[4];
+    char speciality[50];
     bool resident_uc;
 } Student;
-
+typedef struct header
+{
+    unsigned int head;
+    unsigned int current;
+} header;
 typedef struct block_LnOF {
     unsigned int NB;
     unsigned int link;
     Student tab[MAX_RECORDS_PER_BLOCK];
-};
+} block_LnOF;
+typedef struct Lnof {
+    FILE *f;
+    header HEADER;
+} Lnof;
+//------------------------------------------------------------//
 
-typedef struct  LnoF_header {
-    unsigned int head;
-    
-};
+//-----------------ABSTRACT MACHINES HEADERS:-----------------//
+int Open(Lnof **file ,char *name , char *mode);
+int Close(Lnof *file);
+int getHeader(Lnof file, int i);
+int setHeader(Lnof *file, int i, int val);
+int readBlock(Lnof file, int i, block_LnOF *Buf);
+int writeBlock(Lnof *file , int i, block_LnOF *Buf);
+int AllocBlock(Lnof *file);
+//------------------------------------------------------------//
 
+//---------------------RANDOMIZER HEADERS:--------------------//
+int random_value(int mode);
+//------------------------------------------------------------//
