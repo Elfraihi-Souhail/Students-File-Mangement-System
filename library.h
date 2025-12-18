@@ -11,6 +11,7 @@
 #include <time.h>
 
 // Constants
+#define N 2000
 #define MAX_RECORDS_PER_BLOCK 40
 #define MIN_STUDENT_ID 1000
 #define MAX_STUDENT_ID 9000
@@ -29,11 +30,16 @@ static const char *year_of_study[5] = {"1CP" , "2CP" , "1CS" , "2CS" , "3CS"};
 static const char *specialities[4] = {"Information Systems and Technologies (SIT)" , "Computer Systems (SIQ)" , "SOftware and Computer Systems (SIL)" , "Intelligent Systems and Data (SID)"};
 
 //----------------------Type defintions:---------------------//
+typedef struct Date {
+    int year;
+    int month;
+    int day;
+} Date;
 typedef struct student {
     unsigned int Student_id;
     char family_name[31];
     char first_name[31];
-    char date_birth[11];
+    Date date_birth;
     char wilaya_birth[30];
     char gender;
     char blood_type[4];
@@ -55,6 +61,15 @@ typedef struct Lnof {
     FILE *f;
     header HEADER;
 } Lnof;
+typedef struct cell {
+    int key;
+    int blck_num;
+    int offset;
+} cell;
+typedef struct index {
+    cell arr[N];   // max capacity
+    int size;      // actual number of used entries
+} Index;
 //------------------------------------------------------------//
 
 //-----------------ABSTRACT MACHINES HEADERS:-----------------//
@@ -67,6 +82,17 @@ int writeBlock(Lnof *file , int i, block_LnOF *Buf);
 int AllocBlock(Lnof *file);
 //------------------------------------------------------------//
 
-//---------------------RANDOMIZER HEADERS:--------------------//
+//---------------------RANDOMIZER HEADER:--------------------//
 int random_value(int mode);
 //------------------------------------------------------------//
+
+//---------------------DATE UTILITY HEADERS:------------------//
+bool is_leap_year(int year);
+int days_in_month(int month, int year);
+void generate_random_date(Date *date);
+// calculate_age() - optional, only if you want to show age in display
+//------------------------------------------------------------//
+
+//---------------------FILE RELATED HEADERS--------------------//
+int exist_in_file(Index table , int key);
+int create_record(Student *record , Index table);
