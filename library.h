@@ -11,7 +11,6 @@
 #include <time.h>
 
 // Constants
-#define N 2000
 #define MAX_RECORDS_PER_BLOCK 40
 #define MIN_STUDENT_ID 1000
 #define MAX_STUDENT_ID 9000
@@ -67,19 +66,19 @@ typedef struct cell {
     int offset;
 } cell;
 typedef struct index {
-    cell arr[N];   // max capacity
+    cell *arr;   // max capacity
     int size;      // actual number of used entries
 } Index;
 //------------------------------------------------------------//
 
 //-----------------ABSTRACT MACHINES HEADERS:-----------------//
-int Open(Lnof **file ,char *name , char *mode);
-int Close(Lnof *file);
-int getHeader(Lnof file, int i);
-int setHeader(Lnof *file, int i, int val);
-int readBlock(Lnof file, int i, block_LnOF *Buf);
-int writeBlock(Lnof *file , int i, block_LnOF *Buf);
-int AllocBlock(Lnof *file);
+int Open_Lnof(Lnof **file ,char *name , char *mode);
+int Close_Lnof(Lnof *file);
+int getHeader_Lnof(Lnof file, int i);
+int setHeader_Lnof(Lnof *file, int i, int val);
+int readBlock_Lnof(Lnof file, int i, block_LnOF *Buf);
+int writeBlock_Lnof(Lnof *file , int i, block_LnOF *Buf);
+int AllocBlock_Lnof(Lnof *file);
 //------------------------------------------------------------//
 
 //---------------------RANDOMIZER HEADER:--------------------//
@@ -96,3 +95,4 @@ void generate_random_date(Date *date);
 //---------------------FILE RELATED HEADERS--------------------//
 int exist_in_file(Index table , int key);
 int create_record(Student *record , Index table);
+int create_Lnof(Lnof *file , Index table);

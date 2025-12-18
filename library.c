@@ -1,7 +1,7 @@
 #include "library.h"
 
 //---------------------ABSTRACT MACHINE:---------------------//
-int Open(Lnof **file ,char *name , char *mode){
+int Open_Lnof(Lnof **file ,char *name , char *mode){
     FILE *g;
     switch (*mode)
     {
@@ -25,13 +25,13 @@ int Open(Lnof **file ,char *name , char *mode){
     }
     return 0;
 }
-int Close(Lnof *file){
+int Close_Lnof(Lnof *file){
     rewind(file->f);
     fwrite(&(file->HEADER), sizeof(header), 1, file->f);
     fclose(file->f);
     return 0;
 }
-int getHeader(Lnof file, int i){
+int getHeader_Lnof(Lnof file, int i){
     switch (i)
     {
     case  1:
@@ -45,7 +45,7 @@ int getHeader(Lnof file, int i){
         break;
     }
 }
-int setHeader(Lnof *file, int i, int val){
+int setHeader_Lnof(Lnof *file, int i, int val){
     switch (i)
     {
     case 1:
@@ -60,17 +60,17 @@ int setHeader(Lnof *file, int i, int val){
     }
     return 0;
 }
-int readBlock(Lnof file, int i, block_LnOF *Buf){
+int readBlock_Lnof(Lnof file, int i, block_LnOF *Buf){
     fseek(file.f , sizeof(header) + (i - 1) * sizeof(block_LnOF) , SEEK_SET);
     fread(Buf , sizeof(block_LnOF) , 1 ,file.f);
     return Buf ? 0 : 1;
 }
-int writeBlock(Lnof *file, int i, block_LnOF *Buf){
+int writeBlock_Lnof(Lnof *file, int i, block_LnOF *Buf){
     fseek(file->f , sizeof(header) + (i - 1) * sizeof(block_LnOF) , SEEK_SET);
     fwrite(Buf , sizeof(block_LnOF) , 1 ,file->f);
     return Buf ? 0 : 1;
 }
-int AllocBlock(Lnof *file) {
+int AllocBlock_Lnof(Lnof *file) {
     if (file->f == NULL) return -1;
     int next = getHeader(*file , 2);
     setHeader(file , 2 , next + 1);
@@ -219,6 +219,26 @@ int create_record(Student *record , Index table) {
     record->resident_uc = random_value(9);
 
 }
+
+int create_Lnof(Lnof *file , Index table) {
+    int N;
+    printf("Enter the number of records to create : ");
+    scanf("%d", &N);
+    if(!Open_Lnof(&file , "Stuent_ESI.bin" , "N")){
+        printf("The file cannot get open.");
+        return -1;
+    };
+    int j = 0 , offset , blk_num = 1;
+    for(int i = 0 ; i < N ; i++){
+        Student record;
+        create_record(&record, table);
+        
+    }
+    Close_Lnof(file);
+    return 0;
+}
+
+
 //-----------------------------------------------------------//
 
 //---------------------DEBUG FUNCTION:--------------------//
