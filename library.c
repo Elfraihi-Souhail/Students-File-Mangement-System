@@ -72,8 +72,8 @@ int writeBlock_Lnof(Lnof *file, int i, block_LnOF *Buf){
 }
 int AllocBlock_Lnof(Lnof *file) {
     if (file->f == NULL) return -1;
-    int next = getHeader(*file , 2);
-    setHeader(file , 2 , next + 1);
+    int next = getHeader_Lnof(*file , 2);
+    setHeader_Lnof(file , 2 , next + 1);
     return next;
 }
 //-----------------------------------------------------------//
@@ -256,42 +256,56 @@ int create_record(Student *record , Index table) {
     
     // Resident or not generator 
     record->resident_uc = random_value(9);
-
+    return 0;
 }
 
 int create_Lnof(Lnof *file , Index *table) {
 
     // Error handling 
-    if(!Open_Lnof(&file , "Stuent_ESI.bin" , "N")){
+    if(Open_Lnof(&file , "Student_ESI.bin" , "N") != 0){
         printf("The file can not get opened.");
         return -1;
     };
 
     // Reading the maximum number of records
-    int N;
-    printf("Enter the number of records to create : ");
+    int N , C2 = 0;
+    printf("Enter the number of records to create : \n");
     scanf("%d", &N);
 
     // Initialization of the index table (memory allocation)
-    table_init(&table , N);
+    table_init(table , N);
 
     // Genrerate and write the records to the file
-    int j = 0 , offset = 0 , blk_num = 1;
+    int offset = 0 , blk_num = 1;
     block_LnOF buff;
+
     for(int i = 1 ; i <= N ; i++){
         Student record;
         create_record(&record, *table);
-        if(i % 40 == 0) {
-            blk_num++;
+        insert_index(table , record.Student_id , blk_num , offset);
+        buff.tab[offset] = record;
+        offset++; 
+        if(offset == 40 ) {
+            buff.link = (i == N) ? -1 : AllocBlock_Lnof(file);
+            buff.NB = offset;
+            writeBlock_Lnof(file , blk_num , &buff);
             offset = 0;
-            int next = (i == N) ? -1 : AllocBlock_Lnof(&file);
-            writeBlock_Lnof(&file , blk_num , &file);
+            buff.tab[offset] = record;
+            C2++;
+            blk_num++;
         }
-        insert_index(&table , record.Student_id , blk_num , offset);
-
-        
+    } 
+    // Writing the last block if needed
+    if (offset > 0) {
+        buff.link = -1 ;
+        buff.NB = offset;
+        writeBlock_Lnof(file , blk_num , &buff);
+        C2++;
     }
+    // Setting the last block number (in case we need to insert a new record at the end or delete a record and use the last record)
+    setHeader_Lnof(file , 2 , blk_num);
     Close_Lnof(file);
+    printf("\nThe cost of this operation is %d writing\n" , C2);
     return 0;
 }
 
@@ -313,19 +327,46 @@ void display_student(Student s) {
     printf("Resident UC   : %s\n", s.resident_uc ? "Yes" : "No");
     printf("====================================\n\n");
 }
+void display_Lnof_file(char *filename) {
+    Lnof *file = malloc(sizeof(Lnof));
+    if (file == NULL) {
+        printf("Memory allocation failed\n");
+        return;
+    }
+    if (Open_Lnof(&file , "Student_ESI.bin" , "E") != 0) {
+        printf("Cannot open file %s\n", filename);
+        free(file);
+        return;
+    }
+    block_LnOF buf;
+    int i = 1;
+    int nb_records = 0 , nb_blk = 0;
+    printf("File: %s\n", filename);
+
+    while (i != -1) {
+        readBlock_Lnof(*file, i, &buf);
+        nb_blk++;
+        for (unsigned int j = 0; j < buf.NB; j++) {
+            nb_records++;
+            printf("student record number : %d" , j+1);
+            display_student(buf.tab[j]);
+        }
+        i = buf.link;
+        printf("-----------------------------------------------------------------------------------------\n");
+    }
+    printf("number of blocks : %d\n number of records : %d\n", nb_blk , nb_records);
+
+    Close_Lnof(file);
+    free(file);
+}
+
 int main() {
     srand(time(NULL));
-    
-    // Create empty index for testing
+
     Index table;
-    table.size = 0;
-    
-    // Create and display a test record
-    Student test_student;
-    create_record(&test_student, table);
-    
-    printf("Testing record creation:\n");
-    display_student(test_student);
+    Lnof *file = malloc(sizeof(Lnof));
+    create_Lnof(file , &table);
+    display_Lnof_file("Student_ESI.bin");
     
     return 0;
 }

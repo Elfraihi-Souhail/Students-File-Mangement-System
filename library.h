@@ -49,7 +49,7 @@ typedef struct student {
 typedef struct header
 {
     unsigned int head;
-    unsigned int current;
+    unsigned int current; // Last postion at the tail 
 } header;
 typedef struct block_LnOF {
     unsigned int NB;
