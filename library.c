@@ -141,6 +141,45 @@ void generate_random_date(Date *date) {
 //-----------------------------------------------------------//
 
 //-------------------File related functions:-----------------//
+int table_init(Index *table , int capacity){
+    table->arr = malloc(capacity * sizeof(cell));
+    table->size = 0;
+    table->max_capacity = capacity;
+    return 0;
+}
+void ensure_capacity(Index *table) {
+    if (table->size >= table->max_capacity) {
+        int new_capacity = (table->max_capacity == 0) ? 4 : table->max_capacity * 2;
+        cell *new_arr = realloc(table->arr, new_capacity * sizeof(cell));
+        if (!new_arr) {
+            // handle allocation error
+            printf("Index table realloc failed\n");
+            return;
+        }
+        table->arr = new_arr;
+        table->max_capacity = new_capacity;
+    }
+}
+int insert_index(Index *table , int id , int block , int deplacement) {
+    ensure_capacity(table); 
+    
+    // Find the correct position to insert (keeping array sorted)
+    int i = table->size - 1;
+    while (i >= 0 && id < table->arr[i].key) {
+        table->arr[i + 1] = table->arr[i];
+        i--;
+    }
+    
+    // Insert the new element at position i+1
+    table->arr[i + 1].key = id;
+    table->arr[i + 1].blck_num = block;
+    table->arr[i + 1].offset = deplacement;
+    
+    // Increment the effective size
+    table->size++;
+    
+    return 0;
+}
 int exist_in_file(Index table , int key){
     int left = 0;
     int right = table.size - 1;
@@ -220,18 +259,36 @@ int create_record(Student *record , Index table) {
 
 }
 
-int create_Lnof(Lnof *file , Index table) {
+int create_Lnof(Lnof *file , Index *table) {
+
+    // Error handling 
+    if(!Open_Lnof(&file , "Stuent_ESI.bin" , "N")){
+        printf("The file can not get opened.");
+        return -1;
+    };
+
+    // Reading the maximum number of records
     int N;
     printf("Enter the number of records to create : ");
     scanf("%d", &N);
-    if(!Open_Lnof(&file , "Stuent_ESI.bin" , "N")){
-        printf("The file cannot get open.");
-        return -1;
-    };
-    int j = 0 , offset , blk_num = 1;
-    for(int i = 0 ; i < N ; i++){
+
+    // Initialization of the index table (memory allocation)
+    table_init(&table , N);
+
+    // Genrerate and write the records to the file
+    int j = 0 , offset = 0 , blk_num = 1;
+    block_LnOF buff;
+    for(int i = 1 ; i <= N ; i++){
         Student record;
-        create_record(&record, table);
+        create_record(&record, *table);
+        if(i % 40 == 0) {
+            blk_num++;
+            offset = 0;
+            int next = (i == N) ? -1 : AllocBlock_Lnof(&file);
+            writeBlock_Lnof(&file , blk_num , &file);
+        }
+        insert_index(&table , record.Student_id , blk_num , offset);
+
         
     }
     Close_Lnof(file);

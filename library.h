@@ -68,6 +68,7 @@ typedef struct cell {
 typedef struct index {
     cell *arr;   // max capacity
     int size;      // actual number of used entries
+    int max_capacity;
 } Index;
 //------------------------------------------------------------//
 
@@ -93,6 +94,9 @@ void generate_random_date(Date *date);
 //------------------------------------------------------------//
 
 //---------------------FILE RELATED HEADERS--------------------//
+int table_init(Index *table , int capacity); // Table intialization with memory allocation , setting maximum size of records along with the effective size
+void ensure_capacity(Index *table); // We ensure that at the insertrion of a new record the size is not equal or greater than the real size
+int insert_index(Index *table , int id , int block , int deplacement);
 int exist_in_file(Index table , int key);
 int create_record(Student *record , Index table);
-int create_Lnof(Lnof *file , Index table);
+int create_Lnof(Lnof *file , Index *table);
