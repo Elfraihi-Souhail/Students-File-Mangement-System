@@ -27,7 +27,7 @@
 static const char *wilayat[58] = {"Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar", "Blida", "Bouira", "Tamanrasset", "Tébessa", "Tlemcen", "Tiaret", "Tizi Ouzou", "Alger", "Djelfa", "Jijel", "Sétif", "Saïda", "Skikda", "Sidi Bel Abbès", "Annaba", "Guelma", "Constantine", "Médéa", "Mostaganem", "M'Sila", "Mascara", "Ouargla", "Oran", "El Bayadh", "Illizi", "Bordj Bou Arréridj", "Boumerdès", "El Tarf", "Tindouf", "Tissemsilt", "El Oued", "Khenchela", "Souk Ahras", "Tipaza", "Mila", "Aïn Defla", "Naâma", "Aïn Témouchent", "Ghardaïa", "Relizane", "Timimoun", "Bordj Badji Mokhtar", "Ouled Djellal", "Béni Abbès", "In Salah", "In Guezzam", "Touggourt", "Djanet", "El M'Ghair", "El Meniaa"};
 static const char *blood_types[8] = {"O+" , "A+" , "B+" , "O-" , "A-" , "AB+" , "B-" , "AB-"};
 static const char *year_of_study[5] = {"1CP" , "2CP" , "1CS" , "2CS" , "3CS"};
-static const char *specialities[4] = {"Information Systems and Technologies (SIT)" , "Computer Systems (SIQ)" , "SOftware and Computer Systems (SIL)" , "Intelligent Systems and Data (SID)"};
+static const char *specialities[4] = {"Information Systems and Technologies (SIT)" , "Computer Systems (SIQ)" , "Software and Computer Systems (SIL)" , "Intelligent Systems and Data (SID)"};
 
 //----------------------Type defintions:---------------------//
 typedef struct Date {
@@ -74,7 +74,6 @@ typedef struct index {
 typedef struct header_Tof {
     int nblc;
     int nrec;
-    int ndel;
 } header_Tof;
 
 typedef struct Tof {
@@ -84,8 +83,17 @@ typedef struct Tof {
 typedef struct block_TOF {
     unsigned int NB;
     cell tab[b];
-    bool deleted[b];
 } block_TOF;
+typedef struct block_LOF {
+    unsigned int NB;
+    unsigned int link;
+    Student tab[b];
+    bool deleted[b];
+} block_LOF;
+typedef struct Lof {
+    FILE *f;
+    header HEADER;
+} Lof;
 //------------------------------------------------------------//
 
 //-----------------ABSTRACT MACHINES HEADERS:-----------------//
@@ -96,6 +104,14 @@ int setHeader_TOF(Tof *file, int i, int val);
 int readBlock_TOF(Tof file, int i, block_TOF *Buf);
 int writeBlock_TOF(Tof *file, int i, block_TOF *Buf);
 
+int Open_Lof(Lof **file ,char *name , char *mode);
+int Close_Lof(Lof *file);
+int getHeader_Lof(Lof file, int i);
+int setHeader_Lof(Lof *file, int i, int val);
+int readBlock_Lof(Lof file, int i, block_LOF *Buf);
+int writeBlock_Lof(Lof *file, int i, block_LOF *Buf);
+int AllocBlock_Lof(Lof *file);
+
 int Open_Lnof(Lnof **file ,char *name , char *mode);
 int Close_Lnof(Lnof *file);
 int getHeader_Lnof(Lnof file, int i);
@@ -105,10 +121,16 @@ int writeBlock_Lnof(Lnof *file , int i, block_LnOF *Buf);
 int AllocBlock_Lnof(Lnof *file);
 //------------------------------------------------------------//
 
-//---------------------RANDOMIZER HEADER:--------------------//
+//---------------------RANDOMIZER HEADER:---------------------//
 int random_value(int mode);
 //------------------------------------------------------------//
 
+//--------------------STRING UTILITY HEADERS:-----------------//
+int isOnlyLetters(const char *s);
+void normalizeName(char *s);
+int validateFirstName(char *name);
+void clearInputBuffer(void);
+//------------------------------------------------------------//
 //---------------------DATE UTILITY HEADERS:------------------//
 bool is_leap_year(int year);
 int days_in_month(int month, int year);
@@ -125,5 +147,6 @@ int create_record(Student *record , Index table);
 int create_Lnof(Lnof *file , Index *table);
 int create_TOF(Tof *file , Index table );
 int Load_index (Index *table , char *filename);
+int search_student(Index table , int id , int *blk_num , int *offest);
 int insert_student(Lnof *file , Index *table);
 int delete_student(Lnof *file , Index *table , int id);

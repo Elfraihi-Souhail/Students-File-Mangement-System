@@ -17,8 +17,7 @@ int Open_TOF(Tof **file ,char *name , char *mode){
         (*file)->f = fopen(name, "wb+");
         if ((*file)->f == NULL) return -1;
         (*file)->header.nblc = 0;
-        (*file)->header.nrec = 0;
-        (*file)->header.ndel = 0;        
+        (*file)->header.nrec = 0;      
         rewind((*file)->f);
         fwrite(&((*file)->header), sizeof(header_Tof), 1, (*file)->f);
         break;
@@ -75,6 +74,84 @@ int writeBlock_TOF(Tof *file, int i, block_TOF *Buf){
 }
 //----------------------------------------------------------------//
 
+//---------------------ABSTRACT MACHINE LOF:----------------------//
+int Open_Lof(Lof **file ,char *name , char *mode){
+    FILE *g;
+    switch (*mode)
+    {
+    case 'E':
+        (*file)->f = fopen(name, "rb+");
+        if ((*file)->f == NULL) return -1;
+        g = (*file)->f;
+        rewind((*file)->f);
+        fread(&((*file)->HEADER), sizeof(header), 1, (*file)->f);
+        (*file)->f = g;
+        break;
+    case 'N':
+        (*file)->f = fopen(name, "wb+");
+        if ((*file)->f == NULL) return -1;
+        (*file)->HEADER.head = 1;
+        (*file)->HEADER.current = 1;
+        fwrite(&((*file)->HEADER), sizeof(header), 1, (*file)->f);
+        break;
+    default:
+        return -1;
+        break;
+    }
+    return 0;
+}
+int Close_Lof(Lof *file){
+    rewind(file->f);
+    fwrite(&(file->HEADER), sizeof(header), 1, file->f);
+    fclose(file->f);
+    return 0;
+}
+int getHeader_Lof(Lof file, int i){
+    switch (i)
+    {
+    case  1:
+        return file.HEADER.head;
+        break;
+    case 2:
+        return file.HEADER.current;
+        break;
+    default:
+        return -1;
+        break;
+    }
+}
+int setHeader_Lof(Lof *file, int i, int val){
+    switch (i)
+    {
+    case 1:
+        file->HEADER.head = val;
+        break;
+    case 2:
+        file->HEADER.current = val;
+        break;
+    default:
+        return -1;
+        break;
+    }
+    return 0;
+}
+int readBlock_Lof(Lof file, int i, block_LOF *Buf){
+    fseek(file.f , sizeof(header) + (i - 1) * sizeof(block_LOF) , SEEK_SET);
+    fread(Buf , sizeof(block_LOF) , 1 ,file.f);
+    return Buf ? 0 : 1;
+}
+int writeBlock_Lof(Lof *file, int i, block_LOF *Buf){
+    fseek(file->f , sizeof(header) + (i - 1) * sizeof(block_LOF) , SEEK_SET);
+    fwrite(Buf , sizeof(block_LOF) , 1 ,file->f);
+    return Buf ? 0 : 1;
+}
+int AllocBlock_Lof(Lof *file) {
+    if (file->f == NULL) return -1;
+    int next = getHeader_Lof(*file , 2);
+    setHeader_Lof(file , 2 , next + 1);
+    return next + 1;
+}
+//----------------------------------------------------------------//
 //---------------------ABSTRACT MACHINE LNOF:---------------------//
 int Open_Lnof(Lnof **file ,char *name , char *mode){
     FILE *g;
@@ -191,6 +268,43 @@ int random_value(int mode){
 }
 //-----------------------------------------------------------//
 
+//------------------String utility functions:----------------//
+int isOnlyLetters(const char *s) {
+    for (int i = 0; s[i]; i++)
+    {
+        if (!isalpha((unsigned char)s[i]))
+            return 0;
+    }
+    return 1;
+}
+void normalizeName(char *s){
+    if (s[0] == '\0')
+        return;
+
+    s[0] = toupper((unsigned char)s[0]);
+
+    for (int i = 1; s[i]; i++)
+        s[i] = tolower((unsigned char)s[i]);
+}
+int validateFirstName(char *name){
+    size_t len = strlen(name);
+
+    if (len == 0 || len > 30)
+        return 0;
+
+    if (!isOnlyLetters(name))
+        return 0;
+
+    normalizeName(name);   // auto-fix case
+
+    return 1;
+}
+void clearInputBuffer(void) {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+//-----------------------------------------------------------//
+
 //-------------------Date utility functions:-----------------//
 bool is_leap_year(int year) {
     return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
@@ -263,6 +377,11 @@ int insert_index(Index *table , int id , int block , int deplacement) {
     return 0;
 }
 int index_search(Index table , int key){
+    // Error handling 
+    if (table.size == 0) {  
+        printf("The index table is empty. Create the main file first.\n");
+        return -1;
+    }
     int left = 0;
     int right = table.size - 1;
 
@@ -340,7 +459,6 @@ int create_record(Student *record , Index table) {
     record->resident_uc = random_value(9);
     return 0;
 }
-
 int create_Lnof(Lnof *file , Index *table) {
 
     // Error handling 
@@ -394,7 +512,7 @@ int create_Lnof(Lnof *file , Index *table) {
 }
 int create_TOF(Tof *file, Index table) {
     // Error handling 
-    if (table.size == 0) {  // FIXED: == not =
+    if (table.size == 0) {
         printf("The index table is empty. Create the main file first.\n");
         return -1;
     }
@@ -409,17 +527,14 @@ int create_TOF(Tof *file, Index table) {
     // Bulk load of TOF using index table
     int C31 = 0;
     block_TOF buff;
-    int blk_num = 1;  // FIXED: Start at 1, not 0
+    int blk_num = 1;  
     int offset = 0;   // Records in current block
     int k = 0;        // Index in table.arr
-    int load_factor_limit = (int)(0.7 * b);  // Calculate once: 28 records per block
-    
-    printf("Load factor limit: %d records per block (70%% of %d)\n", load_factor_limit, b);
+    int load_factor_limit = (int)(0.7 * b);
     
     while (k < table.size) {
         // Add current record to buffer
         buff.tab[offset] = table.arr[k];
-        buff.deleted[offset] = false;
         offset++;
         k++;
         
@@ -429,8 +544,6 @@ int create_TOF(Tof *file, Index table) {
             writeBlock_TOF(file, blk_num, &buff);
             C31++;
             
-            printf("Written block %d with %d records\n", blk_num, offset);
-            
             blk_num++;
             offset = 0;  // Reset for next block
         }
@@ -439,16 +552,8 @@ int create_TOF(Tof *file, Index table) {
     // Set headers
     int total_blocks = blk_num - 1;
     setHeader_TOF(file, 1, total_blocks);   // nblc = number of blocks
-    setHeader_TOF(file, 2, table.size);     // nrec = total records
-    setHeader_TOF(file, 3, 0);              // ndel = number deleted (initially 0)
-    
-    Close_TOF(file);
-    
-    printf("\n=== TOF Creation Summary ===\n");
-    printf("Total blocks: %d\n", total_blocks);
-    printf("Total records: %d\n", table.size);
-    printf("Cost C31: %d writes\n", C31);
-    
+    setHeader_TOF(file, 2, table.size);     // nrec = total records 
+    Close_TOF(file);   
     return C31;
 }
 int Load_index (Index *table , char *filename){
@@ -471,11 +576,21 @@ int Load_index (Index *table , char *filename){
     for(int i =1 ; i <= nblc ; i++){
         readBlock_TOF(*file, i, &buf);
         for (unsigned int j = 0; j < buf.NB; j++) {
-            insert_index(table , buf.tab[j].key , buf.tab[j].blck_num , buf.tab[j].offset);
+            insert_index(table , buf.tab[j].key , buf.tab[j].blck_num , buf.tab[j].offset);    
         }
     }
     Close_TOF(file);
     free(file);
+    return 0;
+}
+int search_student(Index table , int id , int *blk_num , int *offset){
+    int i = index_search(table , id);
+    if(i == -1) {
+        printf("Student does not exist.");
+        return -1;
+    }
+    *blk_num = table.arr[i].blck_num;
+    *offset = table.arr[i].offset;
     return 0;
 }
 int insert_student(Lnof *file , Index *table){
@@ -490,12 +605,10 @@ int insert_student(Lnof *file , Index *table){
     create_record(&record, *table);
     block_LnOF buff;
     readBlock_Lnof(*file , current_blk , &buff);
-    printf("\nTOTAL NUMBER OF BLOCKS = %d\n" , current_blk);
     C34++;
     if(buff.NB == 40){
         int new_blk = AllocBlock_Lnof(file);
         buff.link = new_blk;
-        printf("BUFF.LINK OF INSERTION = %d\n" , buff.link);
         writeBlock_Lnof(file , current_blk , &buff);
         C34++;
 
@@ -517,44 +630,245 @@ int insert_student(Lnof *file , Index *table){
     return C34;
 }
 
-int delete_student(Lnof *file , Index *table , int id) {
-    // Error handling   
-    if(Open_Lnof(&file , "Student_ESI.bin" , "E") != 0){
-        printf("The file cannot get opened.");
+int delete_student(Lnof *file, Index *table, int id) {
+    if(Open_Lnof(&file, "Student_ESI.bin", "E") != 0){
+        printf("The file cannot be opened.\n");
         return -1;
-    };
+    }
+    
     int C35 = 0;
-    int i = index_search(*table , id);
-    if(i == -1) return -1;
-    int last_blk = getHeader_Lnof(*file , 2);
-    block_LnOF buff;
-    Student record;
-    readBlock_Lnof(*file , last_blk , &buff);
+    
+    // Find student in index
+    int idx = index_search(*table, id);
+    if(idx == -1) {
+        printf("Student ID %d not found.\n", id);
+        Close_Lnof(file);
+        return -1;
+    }
+    
+    int del_blk = table->arr[idx].blck_num;
+    int del_offset = table->arr[idx].offset;
+    int last_blk = getHeader_Lnof(*file, 2);
+    
+    // Read last block
+    block_LnOF last_buff;
+    readBlock_Lnof(*file, last_blk, &last_buff);
     C35++;
-    buff.NB--;
-    if(table->arr[i].blck_num == last_blk && buff.NB == 0) { // if the deleted record is in last block and it 's on its own
-        readBlock_Lnof(*file , last_blk-- , &buff);
-        C35++;
-        buff.link = -1;
-        writeBlock_Lnof(file , last_blk , &buff);
-        C35++;
-        setHeader_Lnof(file , 2 , last_blk);
-    } else { // else we move the last record in the place of the deleted record
-        record = buff.tab[buff.NB];
-        readBlock_Lnof(*file , table->arr[i].blck_num , &buff);
-        C35++;
-        buff.tab[table->arr[i].offset] = record;
-        writeBlock_Lnof(file , last_blk , &buff);
-        C35++;
+    
+    int last_offset = last_buff.NB - 1;  // Offset of last record (before decrement)
+    
+    // Case 1: Deleting the last record itself
+    if(del_blk == last_blk && del_offset == last_offset) {
+        last_buff.NB--;
+        
+        // If last block becomes empty
+        if(last_buff.NB == 0 && last_blk > 1) {
+            // Find previous block
+            int prev_blk = 1;
+            block_LnOF prev_buff;
+            readBlock_Lnof(*file, prev_blk, &prev_buff);
+            C35++;
+            
+            while(prev_buff.link != last_blk && prev_buff.link != -1) {
+                prev_blk = prev_buff.link;
+                readBlock_Lnof(*file, prev_blk, &prev_buff);
+                C35++;
+            }
+            
+            // Make previous block the new tail
+            prev_buff.link = -1;
+            writeBlock_Lnof(file, prev_blk, &prev_buff);
+            C35++;
+            
+            setHeader_Lnof(file, 2, prev_blk);
+        } else {
+            // Just write back the last block with decremented NB
+            writeBlock_Lnof(file, last_blk, &last_buff);
+            C35++;
+        }
     }
-    for (int j = i; i < table->size; j++) // Shifting in the index table
-    {
-        table->arr[j] = table->arr[j+1];
+    // Case 2: Replace deleted record with last record
+    else {
+        Student last_record = last_buff.tab[last_offset];
+        int last_record_id = last_record.Student_id;
+        
+        // Read block with deleted record
+        block_LnOF del_buff;
+        readBlock_Lnof(*file, del_blk, &del_buff);
+        C35++;
+        
+        // Replace deleted record with last record
+        del_buff.tab[del_offset] = last_record;
+        writeBlock_Lnof(file, del_blk, &del_buff);
+        C35++;
+        
+        // Update index for moved record
+        int moved_idx = index_search(*table, last_record_id);
+        if(moved_idx != -1) {
+            table->arr[moved_idx].blck_num = del_blk;
+            table->arr[moved_idx].offset = del_offset;
+        }
+        
+        // Decrement last block's NB
+        last_buff.NB--;
+        
+        // If last block becomes empty
+        if(last_buff.NB == 0 && last_blk > 1) {
+            int prev_blk = 1;
+            block_LnOF prev_buff;
+            readBlock_Lnof(*file, prev_blk, &prev_buff);
+            C35++;
+            
+            while(prev_buff.link != last_blk && prev_buff.link != -1) {
+                prev_blk = prev_buff.link;
+                readBlock_Lnof(*file, prev_blk, &prev_buff);
+                C35++;
+            }
+            
+            prev_buff.link = -1;
+            writeBlock_Lnof(file, prev_blk, &prev_buff);
+            C35++;
+            
+            setHeader_Lnof(file, 2, prev_blk);
+        } else {
+            // Write back the last block with decremented NB
+            writeBlock_Lnof(file, last_blk, &last_buff);
+            C35++;
+        }
     }
+    
+    // Remove from index - FIXED loop
+    for(int j = idx; j < table->size - 1; j++) {
+        table->arr[j] = table->arr[j + 1];
+    }
+    table->size--;
+    
     Close_Lnof(file);
-    return C35;  
+    
+    printf("Deleted student ID %d (Cost: %d)\n", id, C35);
+    return C35;
 }
+int modify_firstName(Lnof *file, Index table, int id) {
+    int blk_num, offset;
 
+    if (search_student(table, id, &blk_num, &offset) == -1)
+        return -1;
+
+    char input_name[31];
+
+    clearInputBuffer();   // IMPORTANT: clean leftover '\n' FIRST
+
+    do {
+        printf("Enter new first name: ");
+        fgets(input_name, sizeof(input_name), stdin);
+        input_name[strcspn(input_name, "\n")] = '\0';
+
+        if (!validateFirstName(input_name)) {
+            printf("Invalid name. Use only letters, max 30 characters, "
+                   "first letter uppercase, rest lowercase.\n");
+        }
+
+    } while (!validateFirstName(input_name));
+
+    if (Open_Lnof(&file, "Student_ESI.bin", "E") != 0) {
+        printf("Cannot open file .");
+        return -1;
+    }
+    block_LnOF buff;
+    int C36 = 0;
+    readBlock_Lnof(*file, blk_num, &buff);
+    C36++;
+    strcpy(buff.tab[offset].first_name, input_name);
+    writeBlock_Lnof(file , blk_num , &buff);
+    C36++;
+    Close_Lnof(file);
+
+    return C36;
+}
+//-----------------------------------------------------------//
+
+//----------------------CREATE LOF---------------------------//
+int create_Lof(Lof *file , Index *table){
+    if (table == NULL || table->size == 0) return -1;
+
+    // Open target LOF (new) file
+    if (Open_Lof(&file, "STUDENTS_CP.BIN", "N") != 0) {
+        printf("Cannot create STUDENTS_CP.BIN\n");
+        return -1;
+    }
+
+    // Open source Lnof file to read student records
+    Lnof *lnof = malloc(sizeof(Lnof));
+    if (lnof == NULL) {
+        Close_Lof(file);
+        return -1;
+    }
+    if (Open_Lnof(&lnof, "Student_ESI.bin", "E") != 0) {
+        printf("Cannot open Student_ESI.bin for reading\n");
+        free(lnof);
+        Close_Lof(file);
+        return -1;
+    }
+
+    int load_limit = (int)(0.75 * b); 
+
+    block_LOF buff1;
+    buff1.NB = 0;
+    buff1.link = -1;
+
+    block_LnOF buff2;
+    int blk_num = 1;     // output block number to write
+    int C5 = 0;
+
+    for (int i = 0; i < table->size; i++) {
+        cell idx = table->arr[i];
+
+        // read the block that contains the student
+        if (readBlock_Lnof(*lnof, idx.blck_num, &buff2) != 0) {
+            // skip on read error
+            continue;
+        }
+
+        Student s = buff2.tab[idx.offset];
+
+        // keep only 1CP and 2CP
+        if (strcmp(s.year_study, "1CP") == 0 || strcmp(s.year_study, "2CP") == 0) {
+            // append to current LOF block buffer
+            buff1.tab[buff1.NB] = s;
+            buff1.NB++;
+
+            // if reached load limit, write block
+            if (buff1.NB >= (unsigned)load_limit) {
+                buff1.link = -1;
+                writeBlock_Lof(file, blk_num, &buff1);
+                C5++;
+                blk_num++;
+                buff1.NB = 0;
+                buff1.link = -1;
+            }
+        }
+    }
+
+    // write remaining records if any
+    if (buff1.NB > 0) {
+        buff1.link = -1;
+        writeBlock_Lof(file, blk_num, &buff1);
+        C5++;
+    } else {
+        blk_num--; // no final block written
+    }
+
+    // update LOF header: set current = number of blocks
+    int total_blocks = (blk_num >= 1) ? blk_num : 0;
+    setHeader_Lof(file, 2, total_blocks);
+
+    
+    Close_Lnof(lnof);
+    free(lnof);
+    Close_Lof(file);
+
+    return C5;
+}
 //-----------------------------------------------------------//
 
 //---------------------DEBUG FUNCTION:--------------------//
@@ -578,28 +892,48 @@ void display_Lnof_file(char *filename) {
         printf("Memory allocation failed\n");
         return;
     }
-    if (Open_Lnof(&file , "Student_ESI.bin" , "E") != 0) {
+    if (Open_Lnof(&file, "Student_ESI.bin", "E") != 0) {
         printf("Cannot open file %s\n", filename);
         free(file);
         return;
     }
+    
     block_LnOF buf;
     int i = 1;
-    int nb_records = 0 , nb_blk = 0;
+    int nb_records = 0, nb_blk = 0;
+    int max_blocks = 1000;  // Safety limit to prevent infinite loop
+    
+    printf("File: %s\n", filename);
+    printf("Header - head: %d, current: %d\n", 
+           getHeader_Lnof(*file, 1), getHeader_Lnof(*file, 2));
 
-    while (i != -1) {
+    while (i != -1 && nb_blk < max_blocks) {  // Added safety check
         readBlock_Lnof(*file, i, &buf);
-        printf("BUFF.link = %d\n" , buf.link);
+        printf("\n=== Block %d ===\n", i);
+        printf("NB: %d, Link: %d\n", buf.NB, buf.link);
         nb_blk++;
+        
         for (unsigned int j = 0; j < buf.NB; j++) {
             nb_records++;
-            printf("student record number : %d" , j+1);
+            printf("Record %d in block:\n", j + 1);
             display_student(buf.tab[j]);
         }
+        
         i = buf.link;
+        printf("Next block: %d\n", i);
         printf("-----------------------------------------------------------------------------------------\n");
+        
+        if (i == 0) {  // Invalid link
+            printf("ERROR: Invalid link (0) detected!\n");
+            break;
+        }
     }
-    printf("number of blocks : %d\nnumber of records : %d\n", nb_blk , nb_records);
+    
+    if (nb_blk >= max_blocks) {
+        printf("ERROR: Infinite loop detected! Stopped at %d blocks.\n", max_blocks);
+    }
+    
+    printf("Total blocks: %d\n Total records: %d\n", nb_blk, nb_records);
 
     Close_Lnof(file);
     free(file);
@@ -641,15 +975,16 @@ int main() {
     Lnof *file = malloc(sizeof(Lnof));
     Tof *file_tof = malloc(sizeof(Tof));
     create_Lnof(file , &table);
-  //  insert_student(file , &table);*/
-   // display_Lnof_file("Student_ESI.bin"); 
-    create_TOF(file_tof , table);
-    display_TOF_file("Student_INDEX.idx");
- /*   Load_index(&table , "Student_INDEX.idx");
     for (int i = 0; i < table.size; i++)
     {
-        printf("RECORD %d :" , i);
-        printf("\nKEY = %d ,   BLOCK = %d \n", table.arr[i].key, table.arr[i].blck_num );
-    }  */
+        printf("RECORD %d :\n" , i);
+        printf("KEY = %d ,   BLOCK = %d\n", table.arr[i].key, table.arr[i].blck_num );
+    }
+    display_Lnof_file("Student_ESI.bin");
+    int id;
+    scanf("%d" , &id);
+    modify_firstName(file , table , id);
+    display_Lnof_file("Student_ESI.bin");
+
     return 0;
 }
