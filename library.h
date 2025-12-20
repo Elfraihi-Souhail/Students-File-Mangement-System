@@ -22,6 +22,7 @@
 #define MAX_WILAYA 58
 #define MIN_YEAR_STUDY 1
 #define MAX_YEAR_STUDY 5
+#define b 40
 
 static const char *wilayat[58] = {"Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar", "Blida", "Bouira", "Tamanrasset", "Tébessa", "Tlemcen", "Tiaret", "Tizi Ouzou", "Alger", "Djelfa", "Jijel", "Sétif", "Saïda", "Skikda", "Sidi Bel Abbès", "Annaba", "Guelma", "Constantine", "Médéa", "Mostaganem", "M'Sila", "Mascara", "Ouargla", "Oran", "El Bayadh", "Illizi", "Bordj Bou Arréridj", "Boumerdès", "El Tarf", "Tindouf", "Tissemsilt", "El Oued", "Khenchela", "Souk Ahras", "Tipaza", "Mila", "Aïn Defla", "Naâma", "Aïn Témouchent", "Ghardaïa", "Relizane", "Timimoun", "Bordj Badji Mokhtar", "Ouled Djellal", "Béni Abbès", "In Salah", "In Guezzam", "Touggourt", "Djanet", "El M'Ghair", "El Meniaa"};
 static const char *blood_types[8] = {"O+" , "A+" , "B+" , "O-" , "A-" , "AB+" , "B-" , "AB-"};
@@ -70,9 +71,31 @@ typedef struct index {
     int size;      // actual number of used entries
     int max_capacity;
 } Index;
+typedef struct header_Tof {
+    int nblc;
+    int nrec;
+    int ndel;
+} header_Tof;
+
+typedef struct Tof {
+    FILE *f;
+    header_Tof header;
+} Tof;
+typedef struct block_TOF {
+    unsigned int NB;
+    cell tab[b];
+    bool deleted[b];
+} block_TOF;
 //------------------------------------------------------------//
 
 //-----------------ABSTRACT MACHINES HEADERS:-----------------//
+int Open_TOF(Tof **file ,char *name , char *mode);
+int Close_TOF(Tof *file);
+int getHeader_TOF(Tof file, int i);
+int setHeader_TOF(Tof *file, int i, int val);
+int readBlock_TOF(Tof file, int i, block_TOF *Buf);
+int writeBlock_TOF(Tof *file, int i, block_TOF *Buf);
+
 int Open_Lnof(Lnof **file ,char *name , char *mode);
 int Close_Lnof(Lnof *file);
 int getHeader_Lnof(Lnof file, int i);
@@ -97,6 +120,10 @@ void generate_random_date(Date *date);
 int table_init(Index *table , int capacity); // Table intialization with memory allocation , setting maximum size of records along with the effective size
 void ensure_capacity(Index *table); // We ensure that at the insertrion of a new record the size is not equal or greater than the real size
 int insert_index(Index *table , int id , int block , int deplacement);
-int exist_in_file(Index table , int key);
+int index_search(Index table , int key);
 int create_record(Student *record , Index table);
 int create_Lnof(Lnof *file , Index *table);
+int create_TOF(Tof *file , Index table );
+int Load_index (Index *table , char *filename);
+int insert_student(Lnof *file , Index *table);
+int delete_student(Lnof *file , Index *table , int id);
