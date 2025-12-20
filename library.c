@@ -382,6 +382,8 @@ int create_Lnof(Lnof *file , Index *table) {
         buff.NB = offset;
         writeBlock_Lnof(file , blk_num , &buff);
         C2++;
+    } else {
+        blk_num--;
     }
     // Setting the last block number (in case we need to insert a new record at the end or delete a record and use the last record)
     setHeader_Lnof(file , 2 , blk_num);
@@ -390,55 +392,64 @@ int create_Lnof(Lnof *file , Index *table) {
 
     return C2;
 }
-int create_TOF(Tof *file , Index table ){
-
+int create_TOF(Tof *file, Index table) {
     // Error handling 
-    if (table.size == 0)
-    {
-       printf("The index table is empty , Create the main file first");
-       return -1;
+    if (table.size == 0) {  // FIXED: == not =
+        printf("The index table is empty. Create the main file first.\n");
+        return -1;
     }
     
-    if(Open_TOF(&file , "Student_INDEX.idx" , "N") != 0){
-        printf("The file cannot be opened.");
+    if(Open_TOF(&file, "Student_INDEX.idx", "N") != 0) {
+        printf("The file cannot be opened.\n");
         return -1;
-    };
+    }
+
+    printf("Creating TOF index with %d records...\n", table.size);
 
     // Bulk load of TOF using index table
     int C31 = 0;
     block_TOF buff;
-    int i = 0 , j = 0 , k = 0;
-    while (k < table.size)
-    {
-        if (j > 0.7*b)
-        {
-            buff.NB = j;
-            writeBlock_TOF(file , i , &buff);
-            C31++;
-            buff.tab[0] = table.arr[k];
-            buff.deleted[0] = false;
-            j = 1;
-            i++;
-        } else {
-            buff.tab[j] = table.arr[k];
-            buff.deleted[j] = false;
-            j++;
-        }
-        k++;
-    }
-    if (j > 1)
-    {
-        buff.NB = j;
-        writeBlock_TOF(file , i , &buff);
-        C31++;
-        i++;
-    }
-    setHeader_TOF(file , 1 , i);
-    setHeader_TOF(file , 2 , k);
-    setHeader_TOF(file , 3 , 0);
-    Close_TOF(file);
-    return C31;
+    int blk_num = 1;  // FIXED: Start at 1, not 0
+    int offset = 0;   // Records in current block
+    int k = 0;        // Index in table.arr
+    int load_factor_limit = (int)(0.7 * b);  // Calculate once: 28 records per block
     
+    printf("Load factor limit: %d records per block (70%% of %d)\n", load_factor_limit, b);
+    
+    while (k < table.size) {
+        // Add current record to buffer
+        buff.tab[offset] = table.arr[k];
+        buff.deleted[offset] = false;
+        offset++;
+        k++;
+        
+        // Write block when reaching load factor OR last record
+        if (offset >= load_factor_limit || k == table.size) {
+            buff.NB = offset;
+            writeBlock_TOF(file, blk_num, &buff);
+            C31++;
+            
+            printf("Written block %d with %d records\n", blk_num, offset);
+            
+            blk_num++;
+            offset = 0;  // Reset for next block
+        }
+    }
+    
+    // Set headers
+    int total_blocks = blk_num - 1;
+    setHeader_TOF(file, 1, total_blocks);   // nblc = number of blocks
+    setHeader_TOF(file, 2, table.size);     // nrec = total records
+    setHeader_TOF(file, 3, 0);              // ndel = number deleted (initially 0)
+    
+    Close_TOF(file);
+    
+    printf("\n=== TOF Creation Summary ===\n");
+    printf("Total blocks: %d\n", total_blocks);
+    printf("Total records: %d\n", table.size);
+    printf("Cost C31: %d writes\n", C31);
+    
+    return C31;
 }
 int Load_index (Index *table , char *filename){
     Tof *file = malloc(sizeof(Tof));
@@ -479,13 +490,14 @@ int insert_student(Lnof *file , Index *table){
     create_record(&record, *table);
     block_LnOF buff;
     readBlock_Lnof(*file , current_blk , &buff);
+    printf("\nTOTAL NUMBER OF BLOCKS = %d\n" , current_blk);
     C34++;
     if(buff.NB == 40){
         int new_blk = AllocBlock_Lnof(file);
         buff.link = new_blk;
+        printf("BUFF.LINK OF INSERTION = %d\n" , buff.link);
         writeBlock_Lnof(file , current_blk , &buff);
         C34++;
-
 
         block_LnOF new_buff;
         new_buff.tab[0] = record;
@@ -574,11 +586,10 @@ void display_Lnof_file(char *filename) {
     block_LnOF buf;
     int i = 1;
     int nb_records = 0 , nb_blk = 0;
-    printf("File: %s\n", filename);
 
     while (i != -1) {
         readBlock_Lnof(*file, i, &buf);
-        printf("BUFF.NB = %d\n" , buf.NB);
+        printf("BUFF.link = %d\n" , buf.link);
         nb_blk++;
         for (unsigned int j = 0; j < buf.NB; j++) {
             nb_records++;
@@ -588,7 +599,7 @@ void display_Lnof_file(char *filename) {
         i = buf.link;
         printf("-----------------------------------------------------------------------------------------\n");
     }
-    printf("number of blocks : %d\n number of records : %d\n", nb_blk , nb_records);
+    printf("number of blocks : %d\nnumber of records : %d\n", nb_blk , nb_records);
 
     Close_Lnof(file);
     free(file);
@@ -621,7 +632,7 @@ void display_TOF_file(char *filename) {
         i++;
         printf("-----------------------------------------------------------------------------------------\n");
     }
-
+    printf("number of blocks : %d\nnumber of records : %d\n", nb_blk , nb_records);
     
 }
 int main() {
@@ -630,14 +641,15 @@ int main() {
     Lnof *file = malloc(sizeof(Lnof));
     Tof *file_tof = malloc(sizeof(Tof));
     create_Lnof(file , &table);
-    insert_student(file , &table);
-    display_Lnof_file("Student_ESI.bin");
+  //  insert_student(file , &table);*/
+   // display_Lnof_file("Student_ESI.bin"); 
     create_TOF(file_tof , table);
     display_TOF_file("Student_INDEX.idx");
-  /*  for (int i = 0; i < table.size; i++)
+ /*   Load_index(&table , "Student_INDEX.idx");
+    for (int i = 0; i < table.size; i++)
     {
+        printf("RECORD %d :" , i);
         printf("\nKEY = %d ,   BLOCK = %d \n", table.arr[i].key, table.arr[i].blck_num );
-    }    
-    */
+    }  */
     return 0;
 }
