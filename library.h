@@ -10,7 +10,10 @@
 #include <ctype.h>
 #include <time.h>
 
-// Constants
+/* Constants used across the project:
+   - MAX_RECORDS_PER_BLOCK: number of student records per LnOF block
+   - MIN_/MAX_*: ranges used for random data generation/validation
+   - b: legacy alias for block size (40) kept for compatibility */
 #define MAX_RECORDS_PER_BLOCK 40
 #define MIN_STUDENT_ID 1000
 #define MAX_STUDENT_ID 9000
@@ -24,17 +27,23 @@
 #define MAX_YEAR_STUDY 5
 #define b 40
 
+/* Lookup tables for randomized/validated fields */
 static const char *wilayat[58] = {"Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar", "Blida", "Bouira", "Tamanrasset", "Tébessa", "Tlemcen", "Tiaret", "Tizi Ouzou", "Alger", "Djelfa", "Jijel", "Sétif", "Saïda", "Skikda", "Sidi Bel Abbès", "Annaba", "Guelma", "Constantine", "Médéa", "Mostaganem", "M'Sila", "Mascara", "Ouargla", "Oran", "El Bayadh", "Illizi", "Bordj Bou Arréridj", "Boumerdès", "El Tarf", "Tindouf", "Tissemsilt", "El Oued", "Khenchela", "Souk Ahras", "Tipaza", "Mila", "Aïn Defla", "Naâma", "Aïn Témouchent", "Ghardaïa", "Relizane", "Timimoun", "Bordj Badji Mokhtar", "Ouled Djellal", "Béni Abbès", "In Salah", "In Guezzam", "Touggourt", "Djanet", "El M'Ghair", "El Meniaa"};
 static const char *blood_types[8] = {"O+" , "A+" , "B+" , "O-" , "A-" , "AB+" , "B-" , "AB-"};
 static const char *year_of_study[5] = {"1CP" , "2CP" , "1CS" , "2CS" , "3CS"};
 static const char *specialities[4] = {"Information Systems and Technologies (SIT)" , "Computer Systems (SIQ)" , "Software and Computer Systems (SIL)" , "Intelligent Systems and Data (SID)"};
 
-//----------------------Type defintions:---------------------//
+/*----------------------Type defintions:---------------------*/
+
+/* Simple date structure */
 typedef struct Date {
     int year;
     int month;
     int day;
 } Date;
+
+/* Student record structure:
+   - fixed-size strings to simplify binary I/O */
 typedef struct student {
     unsigned int Student_id;
     char family_name[31];
@@ -47,39 +56,61 @@ typedef struct student {
     char speciality[50];
     bool resident_uc;
 } Student;
+
+/* Header used in LnOF/LOF structures:
+   - head: usually unused/reserved
+   - current: tracks last/next position in file structure */
 typedef struct header
 {
     unsigned int head;
     unsigned int current; // Last postion at the tail 
 } header;
+
+/* Block for LnOF file format:
+   - NB: number of records actually stored in this block
+   - link: pointer/index to next block or -1
+   - tab: array of Student records (MAX_RECORDS_PER_BLOCK) */
 typedef struct block_LnOF {
     unsigned int NB;
     unsigned int link;
     Student tab[MAX_RECORDS_PER_BLOCK];
 } block_LnOF;
+
+/* Lnof file descriptor combining FILE* and header */
 typedef struct Lnof {
     FILE *f;
     header HEADER;
 } Lnof;
+
+/* Index cell holding key and physical location */
 typedef struct cell {
     int key;
     int blck_num;
     int offset;
 } cell;
+
+/* Dynamic index (array of cells) */
 typedef struct index {
     cell *arr;   // max capacity
     int size;      // actual number of used entries
     int max_capacity;
 } Index;
+
+/* Header for TOF (table/overflow) file type */
 typedef struct header_Tof {
     int nblc;
     int nrec;
 } header_Tof;
 
+/* Tof file descriptor (file + header) */
 typedef struct Tof {
     FILE *f;
     header_Tof header;
 } Tof;
+
+/* Block types for TOF and LOF formats:
+   - block_TOF: stores cell entries for TOF/indexing
+   - block_LOF: LOF block stores Student records + deletion flags */
 typedef struct block_TOF {
     unsigned int NB;
     cell tab[b];
@@ -90,13 +121,17 @@ typedef struct block_LOF {
     Student tab[b];
     bool deleted[b];
 } block_LOF;
+
+/* Lof file descriptor (LOF uses same header type) */
 typedef struct Lof {
     FILE *f;
     header HEADER;
 } Lof;
 //------------------------------------------------------------//
 
-//-----------------ABSTRACT MACHINES HEADERS:-----------------//
+/*-----------------ABSTRACT MACHINES HEADERS:-----------------*/
+/* Function prototypes for file abstractions (TOF, LOF, LNOF).
+   These operate on FILE* wrapped structures and perform block-level I/O. */
 int Open_TOF(Tof **file ,char *name , char *mode);
 int Close_TOF(Tof *file);
 int getHeader_TOF(Tof file, int i);
@@ -121,26 +156,41 @@ int writeBlock_Lnof(Lnof *file , int i, block_LnOF *Buf);
 int AllocBlock_Lnof(Lnof *file);
 //------------------------------------------------------------//
 
-//---------------------RANDOMIZER HEADER:---------------------//
+/*---------------------RANDOMIZER HEADER:---------------------*/
+/* random_value: helper to produce randomized fields for student creation */
 int random_value(int mode);
 //------------------------------------------------------------//
 
-//--------------------STRING UTILITY HEADERS:-----------------//
+/*--------------------STRING UTILITY HEADERS:-----------------*/
+/* Various string utilities:
+   - isOnlyLetters: validate alphabetic-only strings
+   - normalizeName: apply formatting to names
+   - validateFirstName: specific name validation rules
+   - clearInputBuffer: consume leftover stdin characters */
 int isOnlyLetters(const char *s);
 void normalizeName(char *s);
 int validateFirstName(char *name);
 void clearInputBuffer(void);
 //------------------------------------------------------------//
-//---------------------DATE UTILITY HEADERS:------------------//
+//---------------------DATE UTILITY HEADERS:------------------*/
+/* Date helpers for generation and validation */
 bool is_leap_year(int year);
 int days_in_month(int month, int year);
 void generate_random_date(Date *date);
-// calculate_age() - optional, only if you want to show age in display
+// calculate_age() - optional
 //------------------------------------------------------------//
 
-//---------------------FILE RELATED HEADERS--------------------//
-int table_init(Index *table , int capacity); // Table intialization with memory allocation , setting maximum size of records along with the effective size
-void ensure_capacity(Index *table); // We ensure that at the insertrion of a new record the size is not equal or greater than the real size
+/*---------------------FILE RELATED HEADERS--------------------*/
+/* Index/table helpers and high-level file operations:
+   - table_init: allocate/initialize Index structure
+   - ensure_capacity: grow index array as needed
+   - insert_index / index_search: manage in-memory index
+   - create_record: populate a Student struct (likely randomized)
+   - create_Lnof/create_TOF/create_Lof: functions to build files
+   - Load_index: read index from persistent storage
+   - search/insert/delete/modify: student operations on files */
+int table_init(Index *table , int capacity); 
+void ensure_capacity(Index *table); 
 int insert_index(Index *table , int id , int block , int deplacement);
 int index_search(Index table , int key);
 int create_record(Student *record , Index table);
@@ -150,3 +200,5 @@ int Load_index (Index *table , char *filename);
 int search_student(Index table , int id , int *blk_num , int *offest);
 int insert_student(Lnof *file , Index *table);
 int delete_student(Lnof *file , Index *table , int id);
+int modify_firstName(Lnof *file, Index table, int id);
+int create_Lof(Lof *file , Index *table);
