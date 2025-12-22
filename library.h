@@ -1,8 +1,21 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <unistd.h>
+#define sleep_ms(ms) usleep((ms) * 1000)
 #include <stdio.h>
 #endif
+/*
+ * library.h
+ * ---------
+ * Project header for the student file management system used in
+ * the TP coursework. This header declares the public types,
+ * constants, and function prototypes used across the project.
+ *
+ * NOTE: This comment block is documentation-only and does not
+ *       change any program behavior. It was added at the user's
+ *       request to increase readability without modifying code.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -127,37 +140,93 @@ typedef struct Lof {
     FILE *f;
     header HEADER;
 } Lof;
+
+typedef struct Node {
+    int blk_num;
+    int offset;
+    struct Node *next;
+} *Node;
+
+typedef struct blood_resident_index {
+    Node arr[8]; // 8 types of blood
+} blood_resident_index;
+
+typedef struct speciality_index {
+    Node arr[6]; // 6 speacialities
+} speciality_index;
+
+typedef struct birth_year_index {
+    Node arr[6]; // 2003-2008 "6 years"
+} birth_year_index;
+
+typedef struct year_study_index {
+    Node arr[5]; // 1CP , 2CP , 1CS , 2CS , 3CS
+} year_study_index;
+
+typedef struct Query_index
+{
+    blood_resident_index blood_idx;
+    speciality_index spec_idx;
+    year_study_index year_idx;
+    birth_year_index birth_idx;
+} Query_index;
+
+
 //------------------------------------------------------------//
 
 /*-----------------ABSTRACT MACHINES HEADERS:-----------------*/
+/* Linked-list abstract machine (Node helpers) */
+/* Allocate a new node and return pointer (NULL on failure). */
+Node allocate(void);
+/* Set p->next = q. Returns 1 on success, -1 if p==NULL. */
+int ass_adr(Node p , Node q);
+/* Set node values blk_num and offset. Return -1 if p==NULL. */
+int ass_val(Node p , int blk_num , int offset);
+/* Retrieve node values into out-parameters. Returns -1 if p==NULL. */
+int value(Node p , int *blk_num , int *offset);
+/* Return the next pointer (NULL-safe). */
+Node Next(Node p);
+/* Free a node. Returns 0 on success (free(NULL) is a no-op). */
+int Free(Node p);
+//------------------------------------------------------------// 
+
+
 /* Function prototypes for file abstractions (TOF, LOF, LNOF).
    These operate on FILE* wrapped structures and perform block-level I/O. */
+/* TOF (table-of-keys) file operations: open/create, read/write blocks */
 int Open_TOF(Tof **file ,char *name , char *mode);
+/* Close TOF and persist header. */
 int Close_TOF(Tof *file);
+/* Get/Set header fields: i==1 -> nblc, i==2 -> nrec */
 int getHeader_TOF(Tof file, int i);
 int setHeader_TOF(Tof *file, int i, int val);
+/* Block I/O for TOF. */
 int readBlock_TOF(Tof file, int i, block_TOF *Buf);
 int writeBlock_TOF(Tof *file, int i, block_TOF *Buf);
 
+/* LOF (list-of-files) file operations: open/create, close, block I/O */
 int Open_Lof(Lof **file ,char *name , char *mode);
 int Close_Lof(Lof *file);
 int getHeader_Lof(Lof file, int i);
 int setHeader_Lof(Lof *file, int i, int val);
 int readBlock_Lof(Lof file, int i, block_LOF *Buf);
 int writeBlock_Lof(Lof *file, int i, block_LOF *Buf);
+/* Allocate a new LOF block index (increment header.current). */
 int AllocBlock_Lof(Lof *file);
 
+/* LNOF (linked-normalized file) helpers: open/create, close, block I/O */
 int Open_Lnof(Lnof **file ,char *name , char *mode);
 int Close_Lnof(Lnof *file);
 int getHeader_Lnof(Lnof file, int i);
 int setHeader_Lnof(Lnof *file, int i, int val);
 int readBlock_Lnof(Lnof file, int i, block_LnOF *Buf);
 int writeBlock_Lnof(Lnof *file , int i, block_LnOF *Buf);
+/* Allocate a new LNOF block number (increment header.current) */
 int AllocBlock_Lnof(Lnof *file);
 //------------------------------------------------------------//
 
 /*---------------------RANDOMIZER HEADER:---------------------*/
-/* random_value: helper to produce randomized fields for student creation */
+/* Produce pseudo-random values used for record generation (modes defined in impl). */
 int random_value(int mode);
 //------------------------------------------------------------//
 
@@ -167,6 +236,7 @@ int random_value(int mode);
    - normalizeName: apply formatting to names
    - validateFirstName: specific name validation rules
    - clearInputBuffer: consume leftover stdin characters */
+/* String utilities: validation and normalization helpers. */
 int isOnlyLetters(const char *s);
 void normalizeName(char *s);
 int validateFirstName(char *name);
@@ -174,6 +244,7 @@ void clearInputBuffer(void);
 //------------------------------------------------------------//
 //---------------------DATE UTILITY HEADERS:------------------*/
 /* Date helpers for generation and validation */
+/* Date helpers. */
 bool is_leap_year(int year);
 int days_in_month(int month, int year);
 void generate_random_date(Date *date);
@@ -189,16 +260,41 @@ void generate_random_date(Date *date);
    - create_Lnof/create_TOF/create_Lof: functions to build files
    - Load_index: read index from persistent storage
    - search/insert/delete/modify: student operations on files */
+/* Index and high-level file operations */
+void init_query_index(Query_index *q);
+/* Initialize an in-memory Index with given capacity. */
 int table_init(Index *table , int capacity); 
+/* Grow index array when needed. */
 void ensure_capacity(Index *table); 
+void insert_query_index(Query_index *q , Student record , int blk_num , int offset);
+/* Insert a cell into the in-memory index keeping it sorted by key. */
 int insert_index(Index *table , int id , int block , int deplacement);
+/* Search helper for query linked-lists: given ptr and prev pointers, scan for node matching blk_num+offset. */
+void query_search(Node *prev , Node *ptr , int blk_num , int offset);
+/* Binary-search the in-memory Index by key. */
 int index_search(Index table , int key);
+/* Create a randomized Student record (ensures unique Student_id vs table). */
 int create_record(Student *record , Index table);
-int create_Lnof(Lnof *file , Index *table);
-int create_TOF(Tof *file , Index table );
+/* Create main LNOF file and optionally build Query_index in memory. */
+int create_Lnof(Lnof *file , Index *table , Query_index *query);
+/* Persist / restore Query_index arrays to TOF files (helpers). */
+int queryIndex_TOF(Node *index_array, int num_categories, const char *filename);
+int save_query_indexes(Query_index *query);
+int load_queryIndex(Node *index_array, int num_categories, const char *filename);
+int load_query_indexes(Query_index *query);
+/* TOF index helpers. */
+int create_TOF(char *filename , Index table );
 int Load_index (Index *table , char *filename);
+/* Student-level operations: search/insert/delete/modify */
 int search_student(Index table , int id , int *blk_num , int *offest);
-int insert_student(Lnof *file , Index *table);
-int delete_student(Lnof *file , Index *table , int id);
+int insert_student(Lnof *file , Index *table , Query_index *query);
+/* Remove references from Query_index when deleting a record */
+void delete_from_query_index(Query_index *q , Student record , int blk_num, int offset);
+int delete_student(Lnof *file , Index *table , Query_index *query , int id);
 int modify_firstName(Lnof *file, Index table, int id);
 int create_Lof(Lof *file , Index *table);
+/* Display helpers for query results */
+int display_students_by_blood(Lnof *file, Query_index query, const char *blood_type);
+int display_students_by_speciality(Lnof *file, Query_index query, const char *speciality);
+int display_students_by_year(Lnof *file, Query_index query, const char *year_study);
+int display_students_by_birth_year(Lnof *file, Query_index query, int birth_year);

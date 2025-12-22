@@ -83,6 +83,11 @@ void printESI()
     sleep_ms(150);
     printf("\t        \033[0;107m                  \033[0m          \033[0;107m                  \033[0m       \033[0;107m       \033[0m  \n\n\n");
     sleep_ms(220);
+    printf("\t\t\t                            \033[91mPlease                                 \n");
+    printf("\t\t\t                  Click any key to continue...\033[0m               ");
+    getchar();
+
+    printf("\033[2J\033[H");
 }
 
 void Welcome()
