@@ -148,4 +148,4 @@ This project demonstrates:
 
 ---
 
-*Developed as part of a file management systems coursework*
+*Developed as part of a File Structures & External Data Structures practical work*
