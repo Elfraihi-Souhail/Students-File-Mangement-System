@@ -1,10 +1,15 @@
+#ifndef LIBRARY_H
+#define LIBRARY_H
+
 #ifdef _WIN32
 #include <windows.h>
+#define sleep_ms(ms) Sleep(ms)
 #else
 #include <unistd.h>
 #define sleep_ms(ms) usleep((ms) * 1000)
 #include <stdio.h>
 #endif
+
 /*
  * library.h
  * ---------
@@ -297,4 +302,5 @@ int create_Lof(Lof *file , Index *table);
 int display_students_by_blood(Lnof *file, Query_index query, const char *blood_type);
 int display_students_by_speciality(Lnof *file, Query_index query, const char *speciality);
 int display_students_by_year(Lnof *file, Query_index query, const char *year_study);
-int display_students_by_birth_year(Lnof *file, Query_index query, int birth_year);
+int display_students_by_birth_year(Lnof *file, Query_index query, int birth_year1 , int birth_year2);
+#endif
