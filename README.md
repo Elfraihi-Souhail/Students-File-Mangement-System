@@ -59,12 +59,12 @@ This project implements a complete student database management system with:
 
 ### Compilation
 ```bash
-gcc -o student_system main.c library.c -std=c99
+gcc -o student_manager main.c library.c -std=c99
 ```
 
 ### Usage
 ```bash
-./student_system
+./student_manager
 ```
 
 ## 🎮 Menu Options
